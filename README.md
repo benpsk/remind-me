@@ -31,46 +31,18 @@ Install `notify-send` on Debian/Ubuntu:
 sudo apt install libnotify-bin
 ```
 
-## Quick Start
+## Install
 
-Make the script executable:
-
-```bash
-chmod +x ./remindme
-```
-
-Start the user service once:
-
-```bash
-systemctl --user start remindme.service
-```
-
-Add reminders:
-
-```bash
-./remindme 10m Stretch and drink water
-./remindme add 90s Check the oven
-./remindme --at "2026-02-25 18:30" Join standup
-./remindme every 30m Drink water
-```
-
-Check queue / daemon:
-
-```bash
-./remindme list
-systemctl --user status remindme.service
-```
-
-Stop the user service:
-
-```bash
-systemctl --user stop remindme.service
-```
-
-`make install` installs the CLI, installs the `systemd --user` unit, and enables/starts the service:
+Use `make` for setup:
 
 ```bash
 make install
+```
+
+Remove everything later (optional):
+
+```bash
+make uninstall
 ```
 
 ## Discord Webhook Setup
@@ -97,23 +69,6 @@ After creating or changing it:
 systemctl --user daemon-reload
 systemctl --user restart remindme.service
 ```
-
-### Shell export (works for manual use / client shell)
-
-You can also export it in your shell:
-
-```bash
-export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
-```
-
-This is fine for `./remindme ...` client commands and manual daemon mode, but `systemd --user` should use `~/.config/remindme.env` for reliable startup after reboot/login.
-
-The script captures this env var when you run `add` or `every` (client commands).
-
-If you change the webhook URL later:
-
-- `systemd --user` mode: restart the service
-- client commands: run `remindme add ...` or `remindme every ...` again to refresh the captured env snapshot
 
 ## Desktop Notification Notes (`notify-send`)
 
@@ -192,95 +147,6 @@ Clear all queued reminders:
 ./remindme clear
 ```
 
-## Install (CLI + systemd unit)
-
-Default install with `make`:
-
-```bash
-make install
-```
-
-This does all of the following (user-local, no `sudo`):
-
-- installs `remindme` to `~/.local/bin/remindme` (default)
-- installs the user `systemd` unit to `~/.config/systemd/user/remindme.service`
-- enables and starts `remindme.service`
-
-Full uninstall (CLI + systemd user unit):
-
-```bash
-make uninstall
-```
-
-Manual symlink alternative (optional):
-
-```bash
-mkdir -p ~/.local/bin
-ln -sf "$(pwd)/remindme" ~/.local/bin/remindme
-```
-
-Then use:
-
-```bash
-systemctl --user start remindme.service
-remindme 5m tea
-```
-
-## Auto-start on Login (`systemd --user`)
-
-A template unit is included at `systemd/remindme.service`.
-
-Recommended (using `Makefile` helpers):
-
-```bash
-make install
-```
-
-This generates `~/.config/systemd/user/remindme.service` with your installed binary path baked into `ExecStart` (default: `~/.local/bin/remindme`).
-It also reads `~/.config/remindme.env` automatically if present.
-
-`make install` already enables/starts the service.
-
-If you want a different install path, override `INSTALL_BIN` (or `PREFIX` / `BINDIR`) when generating the unit:
-
-```bash
-make systemd-install INSTALL_BIN=/home/you/.local/bin/remindme
-```
-
-Manual setup:
-
-1. Copy it into your user systemd directory:
-
-```bash
-mkdir -p ~/.config/systemd/user
-cp systemd/remindme.service ~/.config/systemd/user/remindme.service
-```
-
-2. Edit `ExecStart` in `~/.config/systemd/user/remindme.service` to match your installed `remindme` path (for example `~/.local/bin/remindme __daemon`).
-
-3. (Recommended) Create `~/.config/remindme.env` with your Discord webhook URL.
-
-4. Reload and enable:
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now remindme.service
-```
-
-5. Check status/logs:
-
-```bash
-systemctl --user status remindme.service
-journalctl --user -u remindme.service -f
-```
-
-Disable / remove the unit later:
-
-```bash
-make systemd-disable
-make systemd-uninstall
-```
-
 ## Data Storage
 
 By default, state is stored under:
@@ -327,22 +193,3 @@ Desktop notifications not showing:
 - verify `notify-send` is installed
 - ensure you started/queued reminders from your desktop session shell
 - restart daemon after login/session changes
-
-## Makefile Targets
-
-```bash
-make install
-make uninstall
-make systemd-install
-make systemd-uninstall
-make systemd-enable
-make systemd-disable
-```
-
-Overrides:
-
-```bash
-make install PREFIX=$HOME/.local
-make install BINDIR=$HOME/.local/bin
-make systemd-install INSTALL_BIN=$HOME/.local/bin/remindme
-```
