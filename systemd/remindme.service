@@ -5,7 +5,7 @@ After=default.target
 [Service]
 Type=simple
 EnvironmentFile=-%h/.config/remindme.env
-ExecStart=@REPO_DIR@/remindme __daemon
+ExecStart=@INSTALL_BIN@ __daemon
 Restart=on-failure
 RestartSec=2
 

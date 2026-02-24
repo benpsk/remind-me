@@ -11,9 +11,6 @@ SLEEP_PID=""
 usage() {
   cat <<'EOF'
 Usage:
-  remindme start
-  remindme stop
-  remindme status
   remindme list
   remindme snooze <id> <delay>
   remindme pause <id>
@@ -29,7 +26,6 @@ Shortcuts (same as "add"):
   remindme --at "YYYY-MM-DD HH:MM[:SS]" <message...>
 
 Examples:
-  remindme start
   remindme 10m Stretch and drink water
   remindme add 1h30m Start laundry
   remindme every 30m Drink water
@@ -39,9 +35,12 @@ Examples:
   remindme pause 1771961521-124
   remindme resume 1771961521-124
 
-Environment (captured when you run start/add/every):
-  DISCORD_WEBHOOK_URL   Optional Discord webhook URL
-  DISPLAY / DBUS_SESSION_BUS_ADDRESS / WAYLAND_DISPLAY / XDG_RUNTIME_DIR
+Environment:
+  systemd --user (recommended): ~/.config/remindme.env
+    DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+  client commands (add/every): capture current shell env snapshot, including:
+    DISCORD_WEBHOOK_URL
+    DISPLAY / DBUS_SESSION_BUS_ADDRESS / WAYLAND_DISPLAY / XDG_RUNTIME_DIR
 EOF
 }
 
@@ -325,54 +324,6 @@ daemon_loop() {
   done
 }
 
-daemon_start() {
-  ensure_state_dirs
-  if is_running; then
-    printf 'Daemon already running (pid %s)\n' "$(daemon_pid)"
-    return 0
-  fi
-
-  write_env_file
-  nohup "$0" __daemon >/dev/null 2>>"$LOG_FILE" &
-  sleep 0.2
-
-  if is_running; then
-    printf 'Daemon started (pid %s)\n' "$(daemon_pid)"
-  else
-    err "Failed to start daemon (see $LOG_FILE)"
-  fi
-}
-
-daemon_stop() {
-  if ! is_running; then
-    printf 'Daemon is not running\n'
-    rm -f "$PID_FILE"
-    return 0
-  fi
-
-  local pid
-  pid="$(daemon_pid)"
-  kill "$pid" 2>/dev/null || true
-  sleep 0.2
-  if kill -0 "$pid" 2>/dev/null; then
-    printf 'Daemon pid %s did not stop yet\n' "$pid"
-    return 1
-  fi
-  rm -f "$PID_FILE"
-  printf 'Daemon stopped\n'
-}
-
-daemon_status() {
-  if is_running; then
-  local pid count
-    pid="$(daemon_pid)"
-    count="$(find "$JOBS_DIR" -maxdepth 1 -name '*.job' 2>/dev/null | wc -l | tr -d ' ')"
-    printf 'running pid=%s queued=%s\n' "$pid" "$count"
-  else
-    printf 'stopped\n'
-  fi
-}
-
 daemon_wake() {
   if is_running; then
     kill -USR1 "$(daemon_pid)" 2>/dev/null || true
@@ -410,7 +361,7 @@ cmd_add() {
   printf 'Queued reminder for %s: %s\n' "$target_human" "$msg"
 
   if ! is_running; then
-    printf 'Note: daemon is not running. Start it with: remindme start\n' >&2
+    printf 'Note: daemon is not running. Start it with: systemctl --user start remindme.service\n' >&2
   fi
 }
 
@@ -434,7 +385,7 @@ cmd_every() {
   printf 'Queued recurring reminder every %ss (next %s): %s\n' "$interval" "$target_human" "$msg"
 
   if ! is_running; then
-    printf 'Note: daemon is not running. Start it with: remindme start\n' >&2
+    printf 'Note: daemon is not running. Start it with: systemctl --user start remindme.service\n' >&2
   fi
 }
 
@@ -571,15 +522,6 @@ main() {
       ;;
     __daemon)
       daemon_loop
-      ;;
-    start)
-      daemon_start
-      ;;
-    stop)
-      daemon_stop
-      ;;
-    status)
-      daemon_status
       ;;
     list)
       cmd_list

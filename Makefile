@@ -1,4 +1,4 @@
-PREFIX ?= /usr/local
+PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 SYSTEMD_UNIT_NAME ?= remindme.service
@@ -13,7 +13,8 @@ install:
 	install -m 0755 remindme "$(INSTALL_BIN)"
 	@echo "Installed to $(INSTALL_BIN)"
 	$(MAKE) systemd-install
-	@echo "Install complete: CLI + systemd user unit"
+	$(MAKE) systemd-enable
+	@echo "Install complete: CLI + systemd user unit enabled"
 
 uninstall:
 	$(MAKE) systemd-uninstall
@@ -23,9 +24,12 @@ uninstall:
 
 systemd-install:
 	mkdir -p "$(SYSTEMD_USER_DIR)"
-	sed "s|@REPO_DIR@|$(REPO_DIR)|g" "$(SYSTEMD_UNIT_SRC)" > "$(SYSTEMD_USER_DIR)/$(SYSTEMD_UNIT_NAME)"
+	sed \
+		-e "s|@REPO_DIR@|$(REPO_DIR)|g" \
+		-e "s|@INSTALL_BIN@|$(INSTALL_BIN)|g" \
+		"$(SYSTEMD_UNIT_SRC)" > "$(SYSTEMD_USER_DIR)/$(SYSTEMD_UNIT_NAME)"
 	@echo "Generated unit at $(SYSTEMD_USER_DIR)/$(SYSTEMD_UNIT_NAME)"
-	@echo "ExecStart uses REPO_DIR=$(REPO_DIR)"
+	@echo "ExecStart uses INSTALL_BIN=$(INSTALL_BIN)"
 	@echo "Optional env file: ~/.config/remindme.env (loaded automatically if present)"
 	systemctl --user daemon-reload
 

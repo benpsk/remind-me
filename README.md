@@ -39,10 +39,10 @@ Make the script executable:
 chmod +x ./remindme
 ```
 
-Start the daemon once:
+Start the user service once:
 
 ```bash
-./remindme start
+systemctl --user start remindme.service
 ```
 
 Add reminders:
@@ -58,20 +58,19 @@ Check queue / daemon:
 
 ```bash
 ./remindme list
-./remindme status
+systemctl --user status remindme.service
 ```
 
-Stop the daemon:
+Stop the user service:
 
 ```bash
-./remindme stop
+systemctl --user stop remindme.service
 ```
 
-`make install` installs both the CLI and the `systemd --user` unit. Then enable the service:
+`make install` installs the CLI, installs the `systemd --user` unit, and enables/starts the service:
 
 ```bash
 make install
-make systemd-enable
 ```
 
 ## Discord Webhook Setup
@@ -109,12 +108,12 @@ export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
 
 This is fine for `./remindme ...` client commands and manual daemon mode, but `systemd --user` should use `~/.config/remindme.env` for reliable startup after reboot/login.
 
-The script captures this env var when you run `start`, `add`, or `every` (manual mode).
+The script captures this env var when you run `add` or `every` (client commands).
 
 If you change the webhook URL later:
 
 - `systemd --user` mode: restart the service
-- manual daemon mode: run `./remindme start` again (or any `add/every` command to refresh the snapshot)
+- client commands: run `remindme add ...` or `remindme every ...` again to refresh the captured env snapshot
 
 ## Desktop Notification Notes (`notify-send`)
 
@@ -122,15 +121,13 @@ If you change the webhook URL later:
 
 This script captures the relevant environment variables when you run:
 
-- `./remindme start`
-- `./remindme add ...`
-- `./remindme every ...`
+- `remindme add ...`
+- `remindme every ...`
 
-If desktop notifications stop working after login/session changes, restart the daemon:
+If desktop notifications stop working after login/session changes, restart the user service:
 
 ```bash
-./remindme stop
-./remindme start
+systemctl --user restart remindme.service
 ```
 
 ## Commands
@@ -144,9 +141,6 @@ Show help:
 Main commands:
 
 ```bash
-./remindme start
-./remindme stop
-./remindme status
 ./remindme list
 ./remindme add <delay> <message...>
 ./remindme add --at "YYYY-MM-DD HH:MM[:SS]" <message...>
@@ -206,16 +200,11 @@ Default install with `make`:
 make install
 ```
 
-This does both:
+This does all of the following (user-local, no `sudo`):
 
-- installs `remindme` to `/usr/local/bin/remindme` (default)
+- installs `remindme` to `~/.local/bin/remindme` (default)
 - installs the user `systemd` unit to `~/.config/systemd/user/remindme.service`
-
-Then enable/start the daemon:
-
-```bash
-make systemd-enable
-```
+- enables and starts `remindme.service`
 
 Full uninstall (CLI + systemd user unit):
 
@@ -223,16 +212,17 @@ Full uninstall (CLI + systemd user unit):
 make uninstall
 ```
 
-Manual symlink alternative:
+Manual symlink alternative (optional):
 
 ```bash
-sudo ln -s "$(pwd)/remindme" /usr/local/bin/remindme
+mkdir -p ~/.local/bin
+ln -sf "$(pwd)/remindme" ~/.local/bin/remindme
 ```
 
 Then use:
 
 ```bash
-remindme start
+systemctl --user start remindme.service
 remindme 5m tea
 ```
 
@@ -246,19 +236,15 @@ Recommended (using `Makefile` helpers):
 make install
 ```
 
-This generates `~/.config/systemd/user/remindme.service` with your current repo path baked into `ExecStart`.
+This generates `~/.config/systemd/user/remindme.service` with your installed binary path baked into `ExecStart` (default: `~/.local/bin/remindme`).
 It also reads `~/.config/remindme.env` automatically if present.
 
-Then enable it:
+`make install` already enables/starts the service.
+
+If you want a different install path, override `INSTALL_BIN` (or `PREFIX` / `BINDIR`) when generating the unit:
 
 ```bash
-make systemd-enable
-```
-
-If your repo lives elsewhere (or you want to generate the unit for another path), override `REPO_DIR`:
-
-```bash
-make systemd-install REPO_DIR=/home/you/path/to/remind-me-cli
+make systemd-install INSTALL_BIN=/home/you/.local/bin/remindme
 ```
 
 Manual setup:
@@ -270,7 +256,7 @@ mkdir -p ~/.config/systemd/user
 cp systemd/remindme.service ~/.config/systemd/user/remindme.service
 ```
 
-2. Edit `ExecStart` in `~/.config/systemd/user/remindme.service` to match your local path to the `remindme` script.
+2. Edit `ExecStart` in `~/.config/systemd/user/remindme.service` to match your installed `remindme` path (for example `~/.local/bin/remindme __daemon`).
 
 3. (Recommended) Create `~/.config/remindme.env` with your Discord webhook URL.
 
@@ -322,11 +308,11 @@ The daemon is designed to avoid busy polling and wake when new reminders are que
 
 ## Troubleshooting
 
-Daemon looks stopped:
+Service looks stopped:
 
 ```bash
-./remindme status
-./remindme start
+systemctl --user status remindme.service
+systemctl --user start remindme.service
 ```
 
 Discord notifications not sending:
@@ -334,7 +320,7 @@ Discord notifications not sending:
 - verify `DISCORD_WEBHOOK_URL`
 - verify `curl` is installed
 - in `systemd` mode, verify `~/.config/remindme.env` and restart `remindme.service`
-- in manual mode, re-run `./remindme start` to refresh captured env
+- re-run `remindme add ...` or `remindme every ...` to refresh captured env snapshot
 
 Desktop notifications not showing:
 
@@ -358,5 +344,5 @@ Overrides:
 ```bash
 make install PREFIX=$HOME/.local
 make install BINDIR=$HOME/.local/bin
-make systemd-install REPO_DIR=$HOME/src/remind-me-cli
+make systemd-install INSTALL_BIN=$HOME/.local/bin/remindme
 ```
