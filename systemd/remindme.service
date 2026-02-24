@@ -1,0 +1,13 @@
+[Unit]
+Description=remindme CLI daemon
+After=default.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/remindme.env
+ExecStart=@REPO_DIR@/remindme __daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
